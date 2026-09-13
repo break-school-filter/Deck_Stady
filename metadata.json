@@ -1,0 +1,6 @@
+{
+  "name": "DeckStudy",
+  "description": "統合型学習ツール - 暗記カード、4択クイズ、ポモドーロタイマー、赤シート暗記ノートを備えたオールインワン学習プラットフォーム",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
