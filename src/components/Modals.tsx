@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle } from 'lucide-react';
+import { X, AlertTriangle, Lock, Key, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Deck } from '../types';
 
 interface AddDeckModalProps {
@@ -235,3 +235,126 @@ export const DeleteDeckModal: React.FC<DeleteDeckModalProps> = ({
     </div>
   );
 };
+
+interface AdminAuthModalProps {
+  isOpen: boolean;
+  adminPassword?: string;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
+  isOpen,
+  adminPassword = 'shibaurafzk',
+  onClose,
+  onSuccess
+}) => {
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleVerify = () => {
+    if (password === adminPassword) {
+      setPassword('');
+      setHasError(false);
+      setShowPassword(false);
+      onSuccess();
+    } else {
+      setHasError(true);
+    }
+  };
+
+  const handleClose = () => {
+    setPassword('');
+    setHasError(false);
+    setShowPassword(false);
+    onClose();
+  };
+
+  return (
+    <div
+      id="modal-admin-auth"
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-md flex items-center justify-center p-4"
+    >
+      <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl space-y-6">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex items-center space-x-2 text-rose-600 font-bold">
+            <Lock className="w-5 h-5" />
+            <h3 className="text-base font-extrabold text-slate-800">管理者認証</h3>
+          </div>
+          <button
+            onClick={handleClose}
+            className="text-slate-400 hover:text-slate-600 cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <p className="text-xs text-slate-500">
+          管理者パネルにアクセスするにはパスワードを入力してください。
+        </p>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-bold text-slate-600">
+            管理者パスワード
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? 'text' : 'password'}
+              id="admin-pass-input"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (hasError) setHasError(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleVerify();
+              }}
+              placeholder="パスワードを入力"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-4 pr-11 py-3 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              title={showPassword ? '非表示' : '表示'}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          {hasError && (
+            <p
+              id="admin-auth-error"
+              className="text-xs font-bold text-rose-600 flex items-center space-x-1 pt-1"
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span>パスワードが正しくありません</span>
+            </p>
+          )}
+        </div>
+
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm cursor-pointer hover:bg-slate-50"
+          >
+            キャンセル
+          </button>
+          <button
+            type="button"
+            onClick={handleVerify}
+            className="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-sm flex items-center justify-center space-x-1.5 cursor-pointer"
+          >
+            <Key className="w-4 h-4" />
+            <span>ログイン</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+

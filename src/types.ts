@@ -12,6 +12,14 @@ export interface Deck {
   cards: Card[];
 }
 
+export interface OfficialDeckPreset {
+  id: string;
+  title: string;
+  category: string;
+  description: string;
+  cards: Card[];
+}
+
 export interface AppStats {
   totalMinutes: number;
   streakDays: number;
@@ -23,11 +31,19 @@ export interface AppStats {
 
 export interface AppData {
   decks: Deck[];
+  officialDecks: OfficialDeckPreset[];
   stats: AppStats;
   notesHtml: string;
 }
 
-export type TabType = 'dashboard' | 'cards' | 'quiz' | 'pomodoro' | 'notes';
+export type TabType =
+  | 'dashboard'
+  | 'cards'
+  | 'quiz'
+  | 'pomodoro'
+  | 'notes'
+  | 'official'
+  | 'admin';
 
 export type RedSheetPresetKey = 'line' | 'sm' | 'md' | 'lg' | 'full';
 
@@ -42,3 +58,4 @@ export interface QuizQuestion {
   correct: string;
   choices: string[];
 }
+

@@ -4,11 +4,12 @@ import {
   TabType,
   RedSheetPresetKey,
   ToastItem,
-  Deck
+  Deck,
+  OfficialDeckPreset
 } from './types';
 import {
   DEFAULT_APP_DATA,
-  RED_SHEET_PRESETS
+  SAMPLE_OFFICIAL_DECKS_PRESETS
 } from './data/defaultData';
 import { Header } from './components/Header';
 import { DashboardTab } from './components/DashboardTab';
@@ -16,21 +17,36 @@ import { FlashcardsTab } from './components/FlashcardsTab';
 import { QuizTab } from './components/QuizTab';
 import { PomodoroTab } from './components/PomodoroTab';
 import { NotesTab } from './components/NotesTab';
+import { OfficialDecksTab } from './components/OfficialDecksTab';
+import { AdminTab } from './components/AdminTab';
 import { RedSheetOverlay } from './components/RedSheetOverlay';
 import {
   AddDeckModal,
   AddCardModal,
-  DeleteDeckModal
+  DeleteDeckModal,
+  AdminAuthModal
 } from './components/Modals';
 import { Toast } from './components/Toast';
 
-const STORAGE_KEY = 'deckstudy_data_v3';
+const STORAGE_KEY = 'deckstudy_data_v4';
+const DEFAULT_ADMIN_PASSWORD = 'shibaurafzk';
+const ADMIN_PW_STORAGE_KEY = 'deckstudy_admin_password';
 
 export default function App() {
+  // Admin password state (persisted separately in localStorage)
+  const [adminPassword, setAdminPassword] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(ADMIN_PW_STORAGE_KEY);
+      return saved && saved.trim().length > 0 ? saved : DEFAULT_ADMIN_PASSWORD;
+    } catch {
+      return DEFAULT_ADMIN_PASSWORD;
+    }
+  });
   // Load initial app data from localStorage
   const [appData, setAppData] = useState<AppData>(() => {
     try {
       // Clear legacy storage keys if present
+      localStorage.removeItem('deckstudy_data_v3');
       localStorage.removeItem('deckstudy_data_v2');
       localStorage.removeItem('deckstudy_data_v1');
 
@@ -38,7 +54,10 @@ export default function App() {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.decks !== undefined && parsed.stats !== undefined) {
-          return parsed;
+          return {
+            ...parsed,
+            officialDecks: Array.isArray(parsed.officialDecks) ? parsed.officialDecks : []
+          };
         }
       }
     } catch {
@@ -52,12 +71,12 @@ export default function App() {
     return appData.decks.length > 0 ? appData.decks[0].id : null;
   });
 
+  // Admin session authentication
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState<boolean>(false);
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState<boolean>(false);
+
   // Red sheet state
   const [isRedSheetActive, setIsRedSheetActive] = useState<boolean>(false);
-  const [redSheetSize, setRedSheetSize] = useState<{ w: number; h: number }>({
-    w: RED_SHEET_PRESETS.md.w,
-    h: RED_SHEET_PRESETS.md.h
-  });
   const [activePreset, setActivePreset] = useState<RedSheetPresetKey | 'custom'>('md');
 
   // Modal states
@@ -100,7 +119,33 @@ export default function App() {
     }
   }, [appData.decks, currentDeckId]);
 
-  // Handlers
+  // Tab navigation handler with admin authorization protection
+  const handleSelectTab = (tab: TabType) => {
+    if (tab === 'admin') {
+      if (isAdminAuthenticated) {
+        setCurrentTab('admin');
+      } else {
+        setIsAdminAuthModalOpen(true);
+      }
+    } else {
+      setCurrentTab(tab);
+    }
+  };
+
+  const handleAdminAuthSuccess = () => {
+    setIsAdminAuthenticated(true);
+    setIsAdminAuthModalOpen(false);
+    setCurrentTab('admin');
+    showToast('管理者として認証されました', 'success');
+  };
+
+  const handleLogoutAdmin = () => {
+    setIsAdminAuthenticated(false);
+    setCurrentTab('dashboard');
+    showToast('管理者ログアウトしました', 'info');
+  };
+
+  // Handlers for Deck & Cards
   const handleStartStudy = (deckId?: string) => {
     if (deckId) {
       setCurrentDeckId(deckId);
@@ -124,7 +169,6 @@ export default function App() {
         };
       });
 
-      // Update today's activity count and streak if 0
       const activity = [...prev.stats.dailyActivity];
       if (activity.length > 0) {
         activity[activity.length - 1] = (activity[activity.length - 1] || 0) + 1;
@@ -190,9 +234,37 @@ export default function App() {
     showToast('新しいデッキを作成しました', 'success');
   };
 
+  const handleImportOfficialDeck = (preset: OfficialDeckPreset) => {
+    const isAlreadyAdded = appData.decks.some((d) => d.title === preset.title);
+    if (isAlreadyAdded) {
+      showToast('既にこのデッキはマイデッキに追加されています', 'info');
+      return;
+    }
+
+    const newDeck: Deck = {
+      id: 'deck-' + Date.now(),
+      title: preset.title,
+      category: preset.category,
+      cards: preset.cards.map((c, idx) => ({
+        id: `c-off-${Date.now()}-${idx}`,
+        front: c.front,
+        back: c.back,
+        mastered: false
+      }))
+    };
+
+    setAppData((prev) => ({
+      ...prev,
+      decks: [...prev.decks, newDeck]
+    }));
+    setCurrentDeckId(newDeck.id);
+    showToast(`「${preset.title}」をマイデッキに追加しました！`, 'success');
+    setCurrentTab('cards');
+  };
+
   const handleCreateCard = (front: string, back: string) => {
     if (!currentDeckId) {
-      showToast('先にデッキを選択してください', 'error');
+      showToast('先にデッキを選択または作成してください', 'error');
       return;
     }
     const newCard = {
@@ -258,7 +330,47 @@ export default function App() {
     setAppData(DEFAULT_APP_DATA);
     setCurrentDeckId(null);
     localStorage.removeItem(STORAGE_KEY);
-    showToast('学習データを初期化しました', 'info');
+    showToast('全データを完全初期化しました（公式デッキパックも0件）', 'info');
+  };
+
+  // Admin: Load sample official decks
+  const handleLoadSampleOfficialDecks = () => {
+    setAppData((prev) => ({
+      ...prev,
+      officialDecks: SAMPLE_OFFICIAL_DECKS_PRESETS
+    }));
+    showToast('公式サンプルパック（3件）を配信公開しました', 'success');
+  };
+
+  // Admin: Clear all official decks
+  const handleClearOfficialDecks = () => {
+    setAppData((prev) => ({
+      ...prev,
+      officialDecks: []
+    }));
+    showToast('公式デッキパックをすべて非公開（0件）にしました', 'info');
+  };
+
+  // Admin: Change password handler
+  const handleChangeAdminPassword = (newPassword: string) => {
+    setAdminPassword(newPassword);
+    try {
+      localStorage.setItem(ADMIN_PW_STORAGE_KEY, newPassword);
+    } catch {
+      // ignore
+    }
+    showToast('管理者パスワードを正常に変更しました', 'success');
+  };
+
+  // Admin: Reset password handler
+  const handleResetAdminPassword = () => {
+    setAdminPassword(DEFAULT_ADMIN_PASSWORD);
+    try {
+      localStorage.removeItem(ADMIN_PW_STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    showToast('管理者パスワードを初期値(shibaurafzk)にリセットしました', 'info');
   };
 
   const handleSaveNotes = (html: string) => {
@@ -273,8 +385,8 @@ export default function App() {
       const next = !prev;
       showToast(
         next
-          ? '赤シートをオンにしました。マウスを動かして赤文字を隠せます！'
-          : '赤シートをオフにしました',
+          ? '暗記用赤シートを表示しました (上部バーをドラッグで移動可能)'
+          : '赤シートを閉じました',
         'info'
       );
       return next;
@@ -282,15 +394,7 @@ export default function App() {
   };
 
   const handleSelectPreset = (key: RedSheetPresetKey) => {
-    const p = RED_SHEET_PRESETS[key];
-    if (!p) return;
-    setRedSheetSize({ w: p.w, h: p.h });
     setActivePreset(key);
-  };
-
-  const handleCustomResize = (w: number, h: number) => {
-    setRedSheetSize({ w, h });
-    setActivePreset('custom');
   };
 
   return (
@@ -298,7 +402,7 @@ export default function App() {
       {/* App Header */}
       <Header
         currentTab={currentTab}
-        onSelectTab={setCurrentTab}
+        onSelectTab={handleSelectTab}
         streakDays={appData.stats.streakDays}
         totalMinutes={appData.stats.totalMinutes}
       />
@@ -311,6 +415,7 @@ export default function App() {
             stats={appData.stats}
             onStartStudy={handleStartStudy}
             onOpenAddDeck={() => setIsAddDeckOpen(true)}
+            onNavigateToOfficial={() => setCurrentTab('official')}
             onResetData={handleResetData}
           />
         )}
@@ -354,17 +459,44 @@ export default function App() {
             onSaveNotes={handleSaveNotes}
             isRedSheetActive={isRedSheetActive}
             onToggleRedSheet={handleToggleRedSheet}
-            redSheetSize={redSheetSize}
             activePreset={activePreset}
             onSelectPreset={handleSelectPreset}
-            onCustomResize={handleCustomResize}
             showToast={showToast}
+          />
+        )}
+
+        {currentTab === 'official' && (
+          <OfficialDecksTab
+            decks={appData.decks}
+            officialDecks={appData.officialDecks || []}
+            onImportOfficialDeck={handleImportOfficialDeck}
+            onOpenAddDeck={() => setIsAddDeckOpen(true)}
+          />
+        )}
+
+        {currentTab === 'admin' && (
+          <AdminTab
+            decks={appData.decks}
+            officialDecks={appData.officialDecks || []}
+            notesHtml={appData.notesHtml}
+            adminPassword={adminPassword}
+            onLogoutAdmin={handleLogoutAdmin}
+            onOpenAddDeck={() => setIsAddDeckOpen(true)}
+            onResetAppToDefault={handleResetData}
+            onLoadSampleOfficialDecks={handleLoadSampleOfficialDecks}
+            onClearOfficialDecks={handleClearOfficialDecks}
+            onChangeAdminPassword={handleChangeAdminPassword}
+            onResetAdminPassword={handleResetAdminPassword}
           />
         )}
       </main>
 
-      {/* Red Sheet Mouse Follower Overlay */}
-      <RedSheetOverlay isActive={isRedSheetActive} size={redSheetSize} />
+      {/* Floating Red Sheet Window */}
+      <RedSheetOverlay
+        isActive={isRedSheetActive}
+        onClose={() => setIsRedSheetActive(false)}
+        onSelectPreset={handleSelectPreset}
+      />
 
       {/* Modals */}
       <AddDeckModal
@@ -384,6 +516,13 @@ export default function App() {
         deck={deckToDelete}
         onClose={() => setDeckToDelete(null)}
         onConfirmDelete={handleConfirmDeleteDeck}
+      />
+
+      <AdminAuthModal
+        isOpen={isAdminAuthModalOpen}
+        adminPassword={adminPassword}
+        onClose={() => setIsAdminAuthModalOpen(false)}
+        onSuccess={handleAdminAuthSuccess}
       />
 
       {/* Toasts */}
