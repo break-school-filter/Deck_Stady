@@ -9,7 +9,8 @@ import {
 } from './types';
 import {
   DEFAULT_APP_DATA,
-  SAMPLE_OFFICIAL_DECKS_PRESETS
+  SAMPLE_OFFICIAL_DECKS_PRESETS,
+  generateNextOfficialDeck
 } from './data/defaultData';
 import { Header } from './components/Header';
 import { DashboardTab } from './components/DashboardTab';
@@ -24,7 +25,8 @@ import {
   AddDeckModal,
   AddCardModal,
   DeleteDeckModal,
-  AdminAuthModal
+  AdminAuthModal,
+  CreateOfficialDeckModal
 } from './components/Modals';
 import { Toast } from './components/Toast';
 
@@ -83,6 +85,7 @@ export default function App() {
   const [isAddDeckOpen, setIsAddDeckOpen] = useState<boolean>(false);
   const [isAddCardOpen, setIsAddCardOpen] = useState<boolean>(false);
   const [deckToDelete, setDeckToDelete] = useState<Deck | null>(null);
+  const [isCreateOfficialDeckOpen, setIsCreateOfficialDeckOpen] = useState<boolean>(false);
 
   // Toast notifications
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -333,13 +336,32 @@ export default function App() {
     showToast('全データを完全初期化しました（公式デッキパックも0件）', 'info');
   };
 
-  // Admin: Load sample official decks
-  const handleLoadSampleOfficialDecks = () => {
+  // Admin: Generate and add a new original official deck
+  const handleAddNextOriginalOfficialDeck = () => {
+    const newDeck = generateNextOfficialDeck(appData.officialDecks || []);
     setAppData((prev) => ({
       ...prev,
-      officialDecks: SAMPLE_OFFICIAL_DECKS_PRESETS
+      officialDecks: [newDeck, ...(prev.officialDecks || [])]
     }));
-    showToast('公式サンプルパック（3件）を配信公開しました', 'success');
+    showToast(`公式オリジナルパック「${newDeck.title}」を新しく配信しました！`, 'success');
+  };
+
+  // Admin: Create custom official deck from modal
+  const handleCreateOfficialDeck = (preset: OfficialDeckPreset) => {
+    setAppData((prev) => ({
+      ...prev,
+      officialDecks: [preset, ...(prev.officialDecks || [])]
+    }));
+    showToast(`オリジナルの公式パック「${preset.title}」を公開配信しました！`, 'success');
+  };
+
+  // Admin: Delete a single official deck
+  const handleDeleteOfficialDeck = (id: string) => {
+    setAppData((prev) => ({
+      ...prev,
+      officialDecks: (prev.officialDecks || []).filter((d) => d.id !== id)
+    }));
+    showToast('指定した公式パックを公開停止（削除）しました', 'info');
   };
 
   // Admin: Clear all official decks
@@ -483,7 +505,9 @@ export default function App() {
             onLogoutAdmin={handleLogoutAdmin}
             onOpenAddDeck={() => setIsAddDeckOpen(true)}
             onResetAppToDefault={handleResetData}
-            onLoadSampleOfficialDecks={handleLoadSampleOfficialDecks}
+            onAddNextOriginalOfficialDeck={handleAddNextOriginalOfficialDeck}
+            onOpenCreateOfficialDeck={() => setIsCreateOfficialDeckOpen(true)}
+            onDeleteOfficialDeck={handleDeleteOfficialDeck}
             onClearOfficialDecks={handleClearOfficialDecks}
             onChangeAdminPassword={handleChangeAdminPassword}
             onResetAdminPassword={handleResetAdminPassword}
@@ -516,6 +540,12 @@ export default function App() {
         deck={deckToDelete}
         onClose={() => setDeckToDelete(null)}
         onConfirmDelete={handleConfirmDeleteDeck}
+      />
+
+      <CreateOfficialDeckModal
+        isOpen={isCreateOfficialDeckOpen}
+        onClose={() => setIsCreateOfficialDeckOpen(false)}
+        onCreateOfficialDeck={handleCreateOfficialDeck}
       />
 
       <AdminAuthModal

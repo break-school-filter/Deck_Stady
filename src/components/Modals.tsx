@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, Lock, Key, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { Deck } from '../types';
+import { X, AlertTriangle, Lock, Key, AlertCircle, Eye, EyeOff, Plus, Trash2, Sparkles } from 'lucide-react';
+import { Deck, OfficialDeckPreset } from '../types';
 
 interface AddDeckModalProps {
   isOpen: boolean;
@@ -353,6 +353,261 @@ export const AdminAuthModal: React.FC<AdminAuthModalProps> = ({
             <span>ログイン</span>
           </button>
         </div>
+      </div>
+    </div>
+  );
+};
+
+interface CreateOfficialDeckModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onCreateOfficialDeck: (preset: OfficialDeckPreset) => void;
+}
+
+export const CreateOfficialDeckModal: React.FC<CreateOfficialDeckModalProps> = ({
+  isOpen,
+  onClose,
+  onCreateOfficialDeck
+}) => {
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState('');
+  const [description, setDescription] = useState('');
+  const [cards, setCards] = useState<Array<{ front: string; back: string }>>([
+    { front: '', back: '' },
+    { front: '', back: '' }
+  ]);
+  const [error, setError] = useState<string | null>(null);
+
+  if (!isOpen) return null;
+
+  const handleAddCardRow = () => {
+    setCards((prev) => [...prev, { front: '', back: '' }]);
+  };
+
+  const handleRemoveCardRow = (index: number) => {
+    if (cards.length <= 1) return;
+    setCards((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleCardChange = (index: number, field: 'front' | 'back', value: string) => {
+    setCards((prev) =>
+      prev.map((c, i) => (i === index ? { ...c, [field]: value } : c))
+    );
+    if (error) setError(null);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    const trimmedTitle = title.trim();
+    if (!trimmedTitle) {
+      setError('公式パックのタイトルを入力してください');
+      return;
+    }
+
+    const validCards = cards
+      .map((c) => ({ front: c.front.trim(), back: c.back.trim() }))
+      .filter((c) => c.front && c.back);
+
+    if (validCards.length === 0) {
+      setError('少なくとも1組以上の問題（表面）と解答（裏面）を入力してください');
+      return;
+    }
+
+    const newPreset: OfficialDeckPreset = {
+      id: `official-custom-${Date.now()}`,
+      title: trimmedTitle,
+      category: category.trim() || '公式オリジナル',
+      description: description.trim() || '公式オリジナル作成パック',
+      cards: validCards.map((c, idx) => ({
+        id: `off-card-${Date.now()}-${idx}`,
+        front: c.front,
+        back: c.back,
+        mastered: false
+      }))
+    };
+
+    onCreateOfficialDeck(newPreset);
+    setTitle('');
+    setCategory('');
+    setDescription('');
+    setCards([
+      { front: '', back: '' },
+      { front: '', back: '' }
+    ]);
+    onClose();
+  };
+
+  const handleCloseModal = () => {
+    setTitle('');
+    setCategory('');
+    setDescription('');
+    setCards([
+      { front: '', back: '' },
+      { front: '', back: '' }
+    ]);
+    setError(null);
+    onClose();
+  };
+
+  return (
+    <div
+      id="modal-create-official-deck"
+      className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+    >
+      <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl space-y-5 my-8 max-h-[90vh] flex flex-col">
+        <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+          <div className="flex items-center space-x-2">
+            <span className="p-2 rounded-xl bg-amber-50 text-amber-600">
+              <Sparkles className="w-5 h-5" />
+            </span>
+            <div>
+              <h3 className="text-base font-black text-slate-800">
+                公式オリジナルパックの新規作成
+              </h3>
+              <p className="text-xs text-slate-400">
+                公式デッキライブラリに新規配信するオリジナル教材を作成
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleCloseModal}
+            className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto pr-1 flex-1">
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs font-bold text-rose-700 flex items-center space-x-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1">
+              パックタイトル <span className="text-rose-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="official-pack-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="例: ビジネス交渉必須フレーズ、高校世界史年号"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+              autoFocus
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                カテゴリー
+              </label>
+              <input
+                type="text"
+                id="official-pack-category"
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder="例: 英語資格、社会、IT"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                説明（概要）
+              </label>
+              <input
+                type="text"
+                id="official-pack-desc"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="例: 初級から中級向け必須10選"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+          </div>
+
+          {/* Cards input section */}
+          <div className="space-y-2 pt-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-bold text-slate-700">
+                収録問題カード ({cards.length}問)
+              </label>
+              <button
+                type="button"
+                onClick={handleAddCardRow}
+                className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center space-x-1 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>問題を追加</span>
+              </button>
+            </div>
+
+            <div className="space-y-2.5 max-h-60 overflow-y-auto p-1">
+              {cards.map((card, idx) => (
+                <div
+                  key={idx}
+                  className="bg-slate-50/80 border border-slate-200 rounded-2xl p-3 space-y-2 relative group"
+                >
+                  <div className="flex justify-between items-center text-[10px] font-bold text-slate-400">
+                    <span>カード #{idx + 1}</span>
+                    {cards.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveCardRow(idx)}
+                        className="text-slate-400 hover:text-rose-500 p-0.5 cursor-pointer"
+                        title="カードを削除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="表面（問題・単語）"
+                        value={card.front}
+                        onChange={(e) => handleCardChange(idx, 'front', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="裏面（解答・解説）"
+                        value={card.back}
+                        onChange={(e) => handleCardChange(idx, 'back', e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-slate-100 flex space-x-3">
+            <button
+              type="button"
+              onClick={handleCloseModal}
+              className="w-1/3 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-xs hover:bg-slate-50 cursor-pointer"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              className="w-2/3 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-md shadow-amber-500/20 cursor-pointer"
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>公式パックを公開配信</span>
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

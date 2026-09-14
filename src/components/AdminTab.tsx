@@ -15,7 +15,9 @@ import {
   EyeOff,
   AlertCircle,
   Check,
-  Lock
+  Lock,
+  Sparkles,
+  Layers
 } from 'lucide-react';
 import { Deck, OfficialDeckPreset } from '../types';
 
@@ -27,7 +29,9 @@ interface AdminTabProps {
   onLogoutAdmin: () => void;
   onOpenAddDeck: () => void;
   onResetAppToDefault: () => void;
-  onLoadSampleOfficialDecks: () => void;
+  onAddNextOriginalOfficialDeck: () => void;
+  onOpenCreateOfficialDeck: () => void;
+  onDeleteOfficialDeck: (id: string) => void;
   onClearOfficialDecks: () => void;
   onChangeAdminPassword: (newPassword: string) => void;
   onResetAdminPassword: () => void;
@@ -41,7 +45,9 @@ export const AdminTab: React.FC<AdminTabProps> = ({
   onLogoutAdmin,
   onOpenAddDeck,
   onResetAppToDefault,
-  onLoadSampleOfficialDecks,
+  onAddNextOriginalOfficialDeck,
+  onOpenCreateOfficialDeck,
+  onDeleteOfficialDeck,
   onClearOfficialDecks,
   onChangeAdminPassword,
   onResetAdminPassword
@@ -303,22 +309,81 @@ export const AdminTab: React.FC<AdminTabProps> = ({
 
         {/* 3. Official Decks Distribution Control */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
-          <h3 className="font-bold text-slate-800 flex items-center space-x-2">
-            <Boxes className="w-4 h-4 text-amber-500" />
-            <span>公式デッキパック配信管理</span>
-          </h3>
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-slate-800 flex items-center space-x-2">
+              <Boxes className="w-4 h-4 text-amber-500" />
+              <span>公式デッキパック配信管理</span>
+            </h3>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+              公開中: {officialDecks.length} 件
+            </span>
+          </div>
+
           <p className="text-xs text-slate-500">
-            初期状態ではユーザー向けに公式パックは一切配信されていません。必要に応じて配信や削除を行えます。
+            「公式サンプル追加」を押すと、公式が新しくオリジナルの学習パックを自動生成・配信します。また管理者自身で完全オリジナルの公式パックを作成・公開することも可能です。
           </p>
+
           <div className="space-y-2 pt-1">
-            <button
-              type="button"
-              onClick={onLoadSampleOfficialDecks}
-              className="w-full py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm"
-            >
-              <Download className="w-4 h-4 text-amber-600" />
-              <span>公式サンプルパックを配信 (3件)</span>
-            </button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onAddNextOriginalOfficialDeck}
+                className="py-2.5 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm shadow-amber-500/20"
+                id="btn-admin-add-official-sample"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>公式サンプル追加 (オリジナル生成)</span>
+              </button>
+              <button
+                type="button"
+                onClick={onOpenCreateOfficialDeck}
+                className="py-2.5 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm"
+              >
+                <Plus className="w-4 h-4 text-amber-400" />
+                <span>公式パックを手動新規作成</span>
+              </button>
+            </div>
+
+            {/* Currently published official packs list */}
+            {officialDecks.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-500 flex justify-between items-center">
+                  <span>公開配信中の公式パック ({officialDecks.length}件)</span>
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1">
+                  {officialDecks.map((deck) => (
+                    <div
+                      key={deck.id}
+                      className="flex justify-between items-center p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs hover:border-slate-200 transition-colors"
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="font-bold text-slate-800 truncate text-[11px]">
+                          {deck.title}
+                        </div>
+                        <div className="text-[10px] text-slate-400 flex items-center space-x-2">
+                          <span className="text-amber-600 font-bold">{deck.category}</span>
+                          <span>•</span>
+                          <span>{deck.cards.length}問</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (window.confirm(`公式パック「${deck.title}」を公開停止（削除）しますか？`)) {
+                            onDeleteOfficialDeck(deck.id);
+                          }
+                        }}
+                        className="text-slate-400 hover:text-rose-600 p-1 rounded-lg hover:bg-white cursor-pointer transition-colors"
+                        title="この公式パックを削除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={() => {
@@ -327,13 +392,13 @@ export const AdminTab: React.FC<AdminTabProps> = ({
                 }
               }}
               disabled={officialDecks.length === 0}
-              className={`w-full py-2.5 rounded-xl border text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer ${
+              className={`w-full mt-2 py-2 rounded-xl border text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer ${
                 officialDecks.length === 0
-                  ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed'
+                  ? 'bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
                   : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border-rose-200'
               }`}
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3.5 h-3.5" />
               <span>公式パックを全消去 (0件に戻す)</span>
             </button>
           </div>
